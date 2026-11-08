@@ -13,6 +13,20 @@
 namespace civ 
 {
     using namespace std;
+
+    class CmdOptions
+    {
+        public:
+        string Filename;
+        bool HelpRequested;
+
+        CmdOptions()
+        {
+            Filename = string();
+            HelpRequested = false;
+        }
+    };
+
     class CivUtils
     {
         public:
@@ -90,6 +104,46 @@ namespace civ
                 stringstream result;
                 result << hex << setw(2) << setfill('0') << (int)value;
                 return result.str();
+            }
+
+            static CmdOptions DecodeCmdOptions(char **argv, int &argc)
+            {
+                auto result = CmdOptions();
+                for (int argCount = 1; argCount < argc; argCount++)
+                {
+                    auto cmdParameter = string(argv[argCount]);
+                    if (StringToLower(cmdParameter) == "-f" && argCount+1 < argc)
+                    {
+                        result.Filename = string(argv[++argCount]);
+                    }
+                    else if(StringToLower(cmdParameter) == "-h")
+                    {
+                        result.HelpRequested = true;
+                    }
+                }
+
+                return result;
+            }
+
+            static string Uint8VectorToHexString(vector<uint8_t>& input)
+            {
+                string result;
+                for(auto byte : input)
+                {
+                    result += Uint8ToHex(byte) + "";
+                }
+                return result;
+            }
+
+            static const string GetHomeFolder()
+            {
+        #ifdef _WIN32
+                return "";
+        #else
+                if (getenv("HOME") != nullptr)
+                    return getenv("HOME");
+                return "";
+        #endif
             }
     };
 }

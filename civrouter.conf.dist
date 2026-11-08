@@ -1,0 +1,64 @@
+# This section defines any configuration settings that will affect the whole system
+[Common]
+Debug               True               # True to enable debugging info
+
+# This section defines the serial port for the radio. The radio must be on a serial port
+[Radio]
+PortAddress         "/dev/ttyICOM0"     # Serial port the radio is connected to
+BaudRate            19200               # Baud rate to be used on the comm port.
+RealAddress         0x88                # This is the CIV address of the Icom radio
+AcceptTransceive    False               # This port accepts transceive commands, otherwise they will not be sent to this port
+SendTransceive      True                # This port is allowed to send transceive commands, otherwise they will be ignored
+SendInfoUpdates     False  	        # When a frequency or mode change is sent from this port, resend as a transceive command to ports supporting transceive
+AcceptInfoUpdates   False	        # When a frequency or mode change is sent, resend as a transceive command to this port
+
+# This is an example of a controller port. You will need a loopback controller to make a companion port for programs to connect to.
+# These examples work with tty0tty on linux. Programs connect to the even number ports tty0-tty6
+[VirtualSerial]
+PortAddress         "/dev/tnt1"         # This is the serial port file that will be specified in apps connecting to the radio
+BaudRate            19200               # Baud rate to be used on the comm port. It makes sense for ALL comm ports to be the same speed.
+TranslateAddress    0xE0                # For good routing, we can masquerade the controller address to be different per port.
+                                        # The radio will see us as different controllers and we'll be able to route responses to the
+                                        # correct program. Best to use 0xE0-0xEF
+RealAddress         0xE0                # The real address. In most cases this will be 0xE0
+AcceptTransceive    True                # This port accepts transceive commands, otherwise they will not be sent to this port
+SendTransceive      False               # This port is allowed to send transceive commands, otherwise they will be ignored
+SendInfoUpdates     True		# When a frequency or mode change is sent from this port, resend as a transceive command to ports supporting transceive
+AcceptInfoUpdates   True		# When a frequency or mode change is sent, resend as a transceive command to this port
+
+[VirtualSerial]
+PortAddress         "/dev/tnt3"         # This is the serial port file that will be specified in apps connecting to the radio
+BaudRate            9600                # Baud rate to be used on the comm port. It makes sense for ALL comm ports to be the same speed.
+TranslateAddress    0xE1                # For good routing, we can masquerade the controller address to be different per port.
+                                        # The radio will see us as different controllers and we'll be able to route responses to the
+                                        # correct program. Best to use 0xE0-0xEF
+RealAddress         0xE0                # The real address (auto detect is flaky)
+AcceptTransceive    True                # This port accepts transceive commands, otherwise they will not be sent to this port
+SendTransceive      False               # This port is allowed to send transceive commands, otherwise they will be ignored
+SendInfoUpdates     True		# When a frequency or mode change is sent from this port, resend as a transceive command to ports supporting transceive
+AcceptInfoUpdates   True		# When a frequency or mode change is sent, resend as a transceive command to this port
+
+[VirtualSerial]
+PortAddress         "/dev/tnt5"         # This is the serial port file that will be specified in apps connecting to the radio
+BaudRate            19200               # Baud rate to be used on the comm port. It makes sense for ALL comm ports to be the same speed.
+TranslateAddress    0xE2                # For good routing, we can masquerade the controller address to be different per port.
+                                        # The radio will see us as different controllers and we'll be able to route responses to the
+                                        # correct program. Best to use 0xE0-0xEF
+RealAddress         0xE0                # The real address (auto detect is flaky)
+AcceptTransceive    True                # This port accepts transceive commands, otherwise they will not be sent to this port
+SendTransceive      False               # This port is allowed to send transceive commands, otherwise they will be ignored
+SendInfoUpdates     True		# When a frequency or mode change is sent from this port, resend as a transceive command to ports supporting transceive
+AcceptInfoUpdates   True		# When a frequency or mode change is sent, resend as a transceive command to this port
+
+[VirtualSerial]
+PortAddress         "/dev/tnt7"         # This is the serial port file that will be specified in apps connecting to the radio
+BaudRate            19200               # Baud rate to be used on the comm port. It makes sense for ALL comm ports to be the same speed.
+TranslateAddress    0xE3                # For good routing, we can masquerade the controller address to be different per port.
+                                        # The radio will see us as different controllers and we'll be able to route responses to the
+                                        # correct program. Best to use 0xE0-0xEF
+RealAddress         0xE0                # The real address (auto detect is flaky)
+AcceptTransceive    True                # This port accepts transceive commands, otherwise they will not be sent to this port
+SendTransceive      False               # This port is allowed to send transceive commands, otherwise they will be ignored
+SendInfoUpdates     True		# When a frequency or mode change is sent from this port, resend as a transceive command to ports supporting transceive
+AcceptInfoUpdates   True		# When a frequency or mode change is sent, resend as a transceive command to this port
+

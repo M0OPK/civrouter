@@ -1,5 +1,9 @@
 #include <civutils.h>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <ostream>
 #include <async_comm/serial.h>
@@ -10,11 +14,58 @@
 #include <thread>
 #include <vector>
 
-int main()
+int main(int argc, char **argv)
 {
 	using namespace civ;
 	using namespace std;
-	auto config = civ::CivConfig("/home/peter/.config/civrouterpp.conf");
+
+#ifndef _WIN32
+	string homeFolder = "";
+	deque<string> tryFilenames = { "/etc/civrouter.conf", "civrouter.conf" };
+	if (getenv("HOME") != nullptr)
+		tryFilenames.push_front(strcat(getenv("HOME"), "/.config/civrouter.conf"));
+#else
+	// Only check current folder for windows
+	deque<string> tryFilenames = { "civrouter.conf" };
+#endif
+
+	// see if there is a command line parameters to specify filename
+	CmdOptions cmdParams = CivUtils::DecodeCmdOptions(argv, argc);
+
+	if (cmdParams.HelpRequested)
+	{
+		cout << "CIV Router 1.0 by Peter Kirby (M0OPK)" << endl << endl;
+		cout << "Usage: " << argv[0] << " [-h] [-f] <config filename>" << endl;
+		return 0;
+	}
+
+	if (cmdParams.Filename == "")
+	{
+		// Try the possible values
+		for(auto filename : tryFilenames)
+		{
+			if (filesystem::exists(filename))
+			{
+				cmdParams.Filename = filename;
+				break;
+			}
+		}
+	}
+	if (cmdParams.Filename == "")
+	{
+		cout << "Unable to open a configuration file. You can specify one with the -f option or put a file named civrouter.conf in the current folder" << endl;
+		return 5;
+	}
+
+	if (!filesystem::exists(cmdParams.Filename))
+	{
+		cerr << "Unable to open config file " << cmdParams.Filename << endl;
+		return 5;
+	}
+
+	cout << "Using config file " << cmdParams.Filename << endl;
+
+	auto config = civ::CivConfig(cmdParams.Filename);
 
 	// Open all the radio ports
 	vector<CivPort*> controllerPorts;

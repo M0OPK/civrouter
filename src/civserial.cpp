@@ -205,9 +205,6 @@ bool CivSerial::SendByte(const uint8_t value)
     serialPort->send_byte(value);
     sentOdometer++;
 
-    //if (JammerSentFlag() || JammerReceivedFlag())
-    //    return false;
-
     return true;
 }
 
