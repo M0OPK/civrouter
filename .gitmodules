@@ -1,0 +1,3 @@
+[submodule "libs/async_comm"]
+	path = libs/async_comm
+	url = https://github.com/m0opk/async_comm.git
