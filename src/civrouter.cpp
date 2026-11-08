@@ -1,0 +1,211 @@
+#include <civutils.h>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <iostream>
+#include <ostream>
+#include <async_comm/serial.h>
+#include <civconfig.h>
+#include <civserial.h>
+#include <civport.h>
+#include <string>
+#include <thread>
+#include <vector>
+
+int main(int argc, char **argv)
+{
+	using namespace civ;
+	using namespace std;
+
+#ifndef _WIN32
+	string homeFolder = "";
+	deque<string> tryFilenames = { "/etc/civrouter.conf", "civrouter.conf" };
+	if (getenv("HOME") != nullptr)
+		tryFilenames.push_front(strcat(getenv("HOME"), "/.config/civrouter.conf"));
+#else
+	// Only check current folder for windows
+	deque<string> tryFilenames = { "civrouter.conf" };
+#endif
+
+	// see if there is a command line parameters to specify filename
+	CmdOptions cmdParams = CivUtils::DecodeCmdOptions(argv, argc);
+
+	if (cmdParams.HelpRequested)
+	{
+		cout << "CIV Router 1.0 by Peter Kirby (M0OPK)" << endl << endl;
+		cout << "Usage: " << argv[0] << " [-h] [-f] <config filename>" << endl;
+		return 0;
+	}
+
+	if (cmdParams.Filename == "")
+	{
+		// Try the possible values
+		for(auto filename : tryFilenames)
+		{
+			if (filesystem::exists(filename))
+			{
+				cmdParams.Filename = filename;
+				break;
+			}
+		}
+	}
+	if (cmdParams.Filename == "")
+	{
+		cout << "Unable to open a configuration file. You can specify one with the -f option or put a file named civrouter.conf in the current folder" << endl;
+		return 5;
+	}
+
+	if (!filesystem::exists(cmdParams.Filename))
+	{
+		cerr << "Unable to open config file " << cmdParams.Filename << endl;
+		return 5;
+	}
+
+	cout << "Using config file " << cmdParams.Filename << endl;
+
+	auto config = civ::CivConfig(cmdParams.Filename);
+
+	// Open all the radio ports
+	vector<CivPort*> controllerPorts;
+	vector<CivPort*> radioPorts;
+
+	// Load ports
+	for(auto portName : config.GetPortNames())
+	{
+		auto port = new CivPort(config.GetPort(portName));
+		if (port->IsRadioPort())
+		{
+			radioPorts.push_back(port);
+			cout << "Radio port : " << portName << endl;
+		}
+		else
+		{
+			controllerPorts.push_back(port);
+			cout << "Controller port : " << portName << endl;
+		}
+	}
+
+	// Validate we have at least one of each kind
+	if (radioPorts.empty())
+	{
+		cerr << "There must be at least one radio port defined!" << endl;
+		return 10;
+	}
+
+	if (controllerPorts.empty())
+	{
+		cerr << "There must be at least one controller port defined!" << endl;
+		return 10;
+	}
+
+	while (1 == 1)
+	{
+		bool foundData = true;
+		while(foundData)
+		{
+			foundData = false;
+			for(auto radioPort : radioPorts)
+			{
+				//cout << "Processing radio port " << radioPort->PortName() << endl;
+				if (radioPort->Update())
+				{
+					while(radioPort->FrameReady())
+					{
+						auto frame = radioPort->PopFrame();
+						//frame.DumpFrame();
+						if (!frame.ValidFrame())
+						{
+							continue;
+						}
+						for(auto controllerPort : controllerPorts)
+						{
+							auto controllerFrame = frame;
+							
+							// Check if we should send a broadcast frame
+							if (controllerFrame.IsBroadcast() && (!radioPort->PortSendsTranceive() || !controllerPort->PortAcceptsTranceive()))
+							{
+								continue;
+							}
+							// Check if this frame is for this destination
+							if (!controllerFrame.IsBroadcast() && controllerFrame.GetToAddress() != controllerPort->VirtualAddress())
+							{
+								continue;
+							}
+							// Rewrite to address to original port address
+							if (!controllerFrame.IsBroadcast())
+							{
+								controllerFrame.SetToAddress(controllerPort->RealAddress());
+							}
+
+							controllerPort->SendFrame(controllerFrame);
+							//controllerFrame.DumpFrame();
+						}
+					}
+					foundData = true;
+				}
+			}
+			for(auto controllerPort : controllerPorts)
+			{
+				//cout << "Processing controller port " << controllerPort->PortName() << endl;
+				if (controllerPort->Update())
+				{
+					while(controllerPort->FrameReady())
+					{
+						auto frame = controllerPort->PopFrame();
+						if (!frame.ValidFrame())
+						{
+							continue;
+						}
+						for (auto radioPort : radioPorts)
+						{
+							auto radioFrame = frame;
+							// Check if we should send a broadcast frame
+							if (frame.IsBroadcast() && (!controllerPort->PortSendsTranceive() || !radioPort->PortAcceptsTranceive()))
+							{
+								continue;
+							}
+
+							// Check if this frame is for this destination
+							if (!radioFrame.IsBroadcast() && radioFrame.GetToAddress() != radioPort->RealAddress())
+							{
+								cout << "Original: " << CivUtils::Uint8ToHex(radioFrame.GetToAddress()) << " Radio ID: " << CivUtils::Uint8ToHex(radioPort->RealAddress()) << endl;
+								continue;
+							}
+							// Rewrite from address to controller virual port address
+							if (!radioFrame.IsBroadcast())
+							{
+								radioFrame.SetFromAddress(controllerPort->VirtualAddress());
+							}
+
+							if (radioFrame.IsChangeCommand() && (controllerPort->PortSendsInfo()))
+							{
+								// Make a broadcast version of this frame and send to all other controllers
+								auto changeFrame = radioFrame;
+								changeFrame.MakeTransceive();
+								changeFrame.SetFromAddress(radioPort->RealAddress());
+								for(auto otherControllerPort : controllerPorts)
+								{
+									if (otherControllerPort->PortName() != controllerPort->PortName() && otherControllerPort->PortAcceptsInfo())
+									{
+										otherControllerPort->SendFrame(changeFrame);
+									}
+								}
+							}
+							//radioFrame.DumpFrame();
+
+							radioPort->SendFrame(radioFrame);
+						}
+					}
+					foundData = true;
+				}
+			}
+		
+		}
+		// @ToDo: Make the wait time settable in config
+		this_thread::sleep_for(milliseconds(1));
+	}
+	
+	return 0;
+}
